@@ -1,9 +1,9 @@
-"""End-to-end test: two agents communicate via MCP inbox using claude --print.
+"""End-to-end test: agents communicate via MCP inbox using claude --print.
 
 Uses the real Claude Code CLI in non-interactive (--print) mode with real API
 calls to prove that the MCP inbox server works end-to-end. Each agent gets
-its own .mcp.json config, and we verify that send_message from agent_a lands
-in agent_b's inbox via check_inbox.
+its own .mcp.json config. Receiving is handled by the proxy (synchronous
+injection), so these tests only verify send_message and list_agents.
 """
 
 import json
@@ -71,17 +71,14 @@ class TestMCPEndToEnd(unittest.TestCase):
         )
         self.assertIn("agent_b", output)
 
-    def test_send_and_receive(self):
-        """Agent A sends a message, agent B receives it via check_inbox."""
+    def test_send_creates_inbox_file(self):
+        """Agent A sends a message, verify it lands in agent B's inbox on disk."""
         mcp_a, env_a = self._setup_agent(
             "agent_a", {"agent_b": "partner"},
         )
-        mcp_b, env_b = self._setup_agent(
-            "agent_b", {"agent_a": "partner"},
-        )
 
         # Agent A sends a message to agent B
-        send_output = claude_print(
+        claude_print(
             mcp_a,
             "Use the send_message tool to send the message 'PING_FROM_A' "
             "to agent_b. Just call the tool, say nothing else.",
@@ -95,49 +92,6 @@ class TestMCPEndToEnd(unittest.TestCase):
         content = files[0].read_text()
         self.assertIn("PING_FROM_A", content)
         self.assertIn("[from agent_a]", content)
-
-        # Agent B reads the message via check_inbox
-        recv_output = claude_print(
-            mcp_b,
-            "Use the check_inbox tool and tell me exactly what messages "
-            "you received, including the sender.",
-            env_b,
-        )
-        self.assertIn("PING_FROM_A", recv_output)
-        self.assertIn("agent_a", recv_output)
-
-    def test_inbox_empty_after_read(self):
-        """Messages are consumed (deleted) after check_inbox reads them."""
-        mcp_a, env_a = self._setup_agent(
-            "agent_a", {"agent_b": "partner"},
-        )
-        mcp_b, env_b = self._setup_agent(
-            "agent_b", {"agent_a": "partner"},
-        )
-
-        # Send a message
-        claude_print(
-            mcp_a,
-            "Use send_message to send 'EPHEMERAL' to agent_b.",
-            env_a,
-        )
-
-        # First read consumes it
-        first = claude_print(
-            mcp_b,
-            "Use check_inbox and tell me what messages you have.",
-            env_b,
-        )
-        self.assertIn("EPHEMERAL", first)
-
-        # Second read should find nothing
-        second = claude_print(
-            mcp_b,
-            "Use check_inbox and tell me what messages you have.",
-            env_b,
-        )
-        # Should indicate no messages (various phrasings are acceptable)
-        self.assertNotIn("EPHEMERAL", second)
 
 
 if __name__ == "__main__":

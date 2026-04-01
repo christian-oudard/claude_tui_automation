@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """MCP server providing inter-agent messaging tools.
 
-Exposes send_message, check_inbox, and list_agents tools to Claude Code
-sessions. Configured via environment variables:
+Exposes send_message and list_agents tools to Claude Code sessions.
+Messages are received synchronously via proxy injection, not polling.
+
+Configured via environment variables:
     AGENT_ID         - this agent's identifier
     AGENT_INBOX_BASE - shared directory for all agent inboxes
     AGENT_PEERS      - JSON object mapping agent IDs to descriptions,
@@ -64,32 +66,6 @@ def send_message(target: str, message: str) -> str:
     final = d / f"{ts}-{os.path.basename(tmp)}"
     os.rename(tmp, final)
     return f"Message sent to {target}"
-
-
-@mcp.tool()
-def check_inbox() -> str:
-    """Check for new messages from other agents.
-
-    Returns all pending messages, oldest first. Messages are removed
-    after reading.
-    """
-    if not AGENT_ID or not INBOX_BASE:
-        return "Error: AGENT_ID and AGENT_INBOX_BASE must be set"
-
-    d = _inbox_dir(AGENT_ID)
-    messages = []
-    for entry in sorted(d.iterdir()):
-        if entry.name.startswith("."):
-            continue
-        try:
-            messages.append(entry.read_text())
-            entry.unlink()
-        except FileNotFoundError:
-            pass
-
-    if not messages:
-        return "No new messages"
-    return "\n".join(messages)
 
 
 if __name__ == "__main__":

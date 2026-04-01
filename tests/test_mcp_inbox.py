@@ -13,7 +13,7 @@ os.environ["AGENT_INBOX_BASE"] = _tmpdir
 os.environ["AGENT_PEERS"] = '{"bob": "test partner"}'
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from mcp_inbox import send_message, check_inbox, list_agents, _inbox_dir, INBOX_BASE
+from mcp_inbox import send_message, list_agents, _inbox_dir, INBOX_BASE
 
 
 class TestMCPInboxTools(unittest.TestCase):
@@ -34,26 +34,6 @@ class TestMCPInboxTools(unittest.TestCase):
         files = [f for f in d.iterdir() if not f.name.startswith(".")]
         self.assertEqual(len(files), 1)
         self.assertIn("[from alice]", files[0].read_text())
-
-    def test_check_inbox_empty(self):
-        result = check_inbox()
-        self.assertEqual(result, "No new messages")
-
-    def test_check_inbox_reads_and_removes(self):
-        send_message("alice", "msg for self")
-        result = check_inbox()
-        self.assertIn("[from alice] msg for self", result)
-
-        # Second check should be empty
-        result2 = check_inbox()
-        self.assertEqual(result2, "No new messages")
-
-    def test_multiple_messages(self):
-        send_message("alice", "first")
-        send_message("alice", "second")
-        result = check_inbox()
-        self.assertIn("first", result)
-        self.assertIn("second", result)
 
     def test_message_includes_sender(self):
         send_message("bob", "test payload")
